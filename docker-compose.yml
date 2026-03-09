@@ -1,0 +1,47 @@
+version: "3.8"
+
+services:
+
+  upstream-mock:
+    build:
+      context: .
+      dockerfile: Dockerfile.mock
+    ports:
+      - "3000:3000"
+    environment:
+      UPSTREAM_PORT: 3000
+      UPSTREAM_FAIL_RATE: 0
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    depends_on:
+      upstream-mock:
+        condition: service_healthy
+    environment:
+      API_GATEWAY_PORT: 8080
+      UPSTREAM_SERVICE_URL: http://upstream-mock:3000
+      UPSTREAM_PORT: 3000
+      UPSTREAM_FAIL_RATE: 0
+      FIXED_WINDOW_LIMIT: 5
+      FIXED_WINDOW_DURATION_SECONDS: 10
+      SLIDING_WINDOW_LIMIT: 3
+      SLIDING_WINDOW_DURATION_SECONDS: 5
+      CB_FAILURE_THRESHOLD: 3
+      CB_RESET_TIMEOUT_SECONDS: 30
+      CB_SUCCESS_THRESHOLD_HALF_OPEN: 1
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
